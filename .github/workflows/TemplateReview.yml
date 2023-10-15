@@ -1,15 +1,24 @@
+name: Some workflow
+
 on:
-  pull_request:
+  issue_comment:
+    types: [created]
 
 jobs:
-  test:
+  comment:
+    if: contains(github.event.comment.body, 'special string')
+
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
+
     steps:
-      - uses: mshick/add-pr-comment@v2
-        with:
-          message: |
-            **Hello**
-            🌏
-            !
+      - name: Add comment to PR
+        env:
+          URL: ${{ github.event.issue.comments_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl \
+            -X POST \
+            $URL \
+            -H "Content-Type: application/json" \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            --data '{ "body": "blah blah" }'
