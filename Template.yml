@@ -4,109 +4,33 @@ Resources:
   DevBackendQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: dev-queue-1
-      SqsManagedSseEnabled: false
-  LambdaRole:
-    Type: AWS::IAM::Role
+      SecurityGroups:
+        - !Ref InstanceSecurityGroup
+      KeyName: ec2-keypair
+      ImageId: ami-0ff8a91507f77f867
+      Tags:
+        - 
+          Key: "Environment"
+          Value: "TM_Lab"
+  InstanceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
     Properties:
-      RoleName: ScannerLambdaRole
-      Description: ScannerLambdaRole
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service: lambda.amazonaws.com
-          Action: sts:AssumeRole
-      Policies:
-        - PolicyName: LambdaRolePolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                - sqs:GetQueueAttributes
-                - ssm:GetParameter
-                Resource:
-                - !Sub arn:aws:ssm:*:${AWS::AccountId}:parameter/player/C1/c1ApiKey
-                - !Sub arn:aws:ssm:*:${AWS::AccountId}:parameter/player/C1/c1Region
-                - !Sub arn:aws:sqs:*:${AWS::AccountId}:dev-queue-1
-  ScannerValidateLambdaTask1:
-    Type: AWS::Lambda::Function
+      GroupDescription: Enable SSH access via port 22 test 
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - 
+          Key: "Environment"
+          Value: "TM_Lab"
+  S3Bucket:
+    Type: AWS::S3::Bucket
     Properties:
-      Description: Lambda to validate task 1.
-      Timeout: 30
-      FunctionName: ScannerValidateLambdaTask1
-      Handler: index.lambda_handler
-      Runtime: python3.9
-      Role: !GetAtt LambdaRole.Arn
-      Code:
-        ZipFile: |
-          import json
-          from urllib.error import HTTPError
-          from urllib.request import urlopen, Request
+      BucketName: test-tm-lab-s3-bucket
+      Tags:
+        - 
+          Key: "Environment"
+          Value: "TM_Lab"
 
-          import boto3
-
-          SMM_CLIENT = boto3.client('ssm')
-
-
-          def get_param(endpoint: str) -> str:
-              parameter = SMM_CLIENT.get_parameter(Name=endpoint, WithDecryption=True)
-              return parameter['Parameter']['Value']
-
-
-          def lambda_handler(event, context) -> bool:
-              api_key = get_param('/player/C1/c1ApiKey')
-              region = get_param('/player/C1/c1Region')
-              trend_headers = {
-                  'Authorization': f'ApiKey {api_key}',
-                  'Content-Type': 'application/vnd.api+json',
-                  'Api-Version': 'v1'
-              }
-              trend_request = Request(
-                  url=f"https://sourceaccounts.{region}.cloudone.trendmicro.com/api/integrations",
-                  headers=trend_headers
-              )
-
-              try:
-                  with urlopen(trend_request) as response:
-                      resp = json.loads(response.read().decode())
-                      print(resp)
-                      if resp.get('integrations'):
-                          return True
-                      else:
-                          raise Exception('Github integration not set up in Cloud One.')
-              except HTTPError as error:
-                  print(error)
-  ScannerValidateLambdaTask3:
-    Type: AWS::Lambda::Function
-    Properties:
-      Description: Lambda to validate task 3.
-      Timeout: 30
-      FunctionName: ScannerValidateLambdaTask3
-      Handler: index.lambda_handler
-      Runtime: python3.9
-      Role: !GetAtt LambdaRole.Arn
-      Code:
-        ZipFile: |
-          import boto3
-
-
-          def lambda_handler(event, context) -> bool:
-              sqs_client = boto3.client('sqs')
-              account_id = context.invoked_function_arn.split(":")[4]
-
-              queue_attrs = sqs_client.get_queue_attributes(
-                  QueueUrl=f'https://queue.amazonaws.com/{account_id}/dev-queue-1',
-                  AttributeNames=['All']
-              )
-
-              if queue_attrs['Attributes']['SqsManagedSseEnabled'] == 'true':
-                  return True
-              else:
-                  raise Exception('Queue Not Encrypted')
-Outputs:
-  QueueURL:
-    Description: URL used to access SQS Queue used to remediate attributes.
-    Value: !Sub https://${AWS::Region}.console.aws.amazon.com/sqs/v2/home?region=${AWS::Region}#/queues/https%3A%2F%2Fsqs.${AWS::Region}.amazonaws.com%2F${AWS::AccountId}%2Fdev-queue-1
