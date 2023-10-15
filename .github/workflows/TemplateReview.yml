@@ -1,24 +1,15 @@
-name: Responder al PR
 on:
   pull_request:
-    types:
-      - opened
+
 jobs:
-  comment:
+  test:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
-    - name: Comentar en el PR
-      uses: actions/github-script@0.10.0
-      with:
-        github-token: ${{secrets.GITHUB_TOKEN}}
-        script: |
-          const response = "Este comentario es solo para el autor del PR.";
-          const prAuthor = context.payload.pull_request.user.login;
-          if (context.actor === prAuthor) {
-            github.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: response
-            });
-          }
+      - uses: mshick/add-pr-comment@v2
+        with:
+          message: |
+            **Hello**
+            🌏
+            !
