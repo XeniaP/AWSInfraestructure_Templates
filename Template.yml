@@ -1,6 +1,8 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
 Resources:
-  Ec2Instance:
-    Type: 'AWS::EC2::Instance'
+  DevBackendQueue:
+    Type: AWS::SQS::Queue
     Properties:
       SecurityGroups:
         - !Ref InstanceSecurityGroup
@@ -31,3 +33,4 @@ Resources:
         - 
           Key: "Environment"
           Value: "TM_Lab"
+
